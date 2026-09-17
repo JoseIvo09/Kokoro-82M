@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- CSP: libera CDNs do Kokoro (jsdelivr, huggingface) e WebAssembly (ONNX) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; img-src 'self' data:; font-src 'self'; connect-src 'self' https:; media-src 'self' blob: https:; worker-src 'self' blob:; child-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#6546d7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1635" media="(prefers-color-scheme: dark)">
+  <title>Complete a Palavra — Jogo Educativo com Voz Neural Kokoro</title>
+  <meta name="description" content="Jogo educativo infantil com voz neural Kokoro 100% no navegador. Sem servidor, sem chaves, funciona offline após o primeiro acesso.">
+  <meta name="keywords" content="jogo educativo, alfabetização, letras, kokoro, tts, voz neural, crianças, português, offline">
+  <meta name="author" content="PcTech by Sinnomar Lino">
+  <meta name="robots" content="index, follow">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Complete a Palavra — Voz Neural Kokoro">
+  <meta property="og:description" content="Jogo educativo infantil com voz neural 100% no navegador. Funciona offline!">
+  <meta property="og:site_name" content="Complete a Palavra">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Complete a Palavra — Voz Neural Kokoro">
+  <meta name="twitter:description" content="Voz neural 100% no navegador, sem servidor. Funciona offline!">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Complete a Palavra">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a href="#game" class="skip-link">Pular para o jogo</a>
+
+  <noscript>
+    <div class="noscript-warning" role="alert">
+      <p>Este jogo precisa de JavaScript habilitado para funcionar. Por favor, ative o JavaScript no seu navegador.</p>
+    </div>
+  </noscript>
+
+  <section class="intro" id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+    <div class="intro-card">
+      <h2 id="introTitle">Vamos aprender? 🌟</h2>
+      <p>Complete as palavras escolhendo as letras que faltam. Você pode ouvir a palavra a qualquer momento.</p>
+
+      <fieldset class="difficulty" aria-label="Escolha o nível de dificuldade">
+        <legend>Nível de dificuldade</legend>
+        <div class="difficulty-options" role="radiogroup" aria-label="Nível de dificuldade">
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty" value="easy" checked>
+            <span>Fácil</span>
+            <small>Poucas letras faltando</small>
+          </label>
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty" value="medium">
+            <span>Médio</span>
+            <small>Metade das letras</small>
+          </label>
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty" value="hard">
+            <span>Difícil</span>
+            <small>Quase todas as letras</small>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="demo-picture" role="img" aria-label="Pato">🦆</div>
+      <div class="demo-word" aria-label="Exemplo da palavra pato">
+        <div class="demo-letter">P</div>
+        <div class="demo-letter">A</div>
+        <div id="demoT" class="demo-letter gap">?</div>
+        <div id="demoO" class="demo-letter gap">?</div>
+      </div>
+      <div class="demo-choices" aria-label="Letras da demonstração">
+        <button type="button" class="demo-choice" data-demo="T" aria-label="Letra T">T</button>
+        <button type="button" class="demo-choice" data-demo="O" aria-label="Letra O">O</button>
+        <button type="button" class="demo-choice" data-demo="X" aria-label="Letra X">X</button>
+      </div>
+      <div id="audioStatus" class="audio-status" role="status" aria-live="polite"></div>
+      <p id="introMsg" class="sr-only"></p>
+
+      <details class="intro-voice-panel" id="introVoicePanel">
+        <summary>🎙️ Configurar vozes</summary>
+        <div class="intro-voice-controls">
+          <label>
+            Fonte da voz
+            <select id="introSpeechMode" aria-label="Fonte da voz">
+              <option value="auto" selected>🔄 Automática (Kokoro + dispositivo)</option>
+              <option value="kokoro">🧠 Kokoro — Voz neural local</option>
+              <option value="browser">📱 Voz do dispositivo</option>
+            </select>
+          </label>
+          <label>
+            Voz selecionada
+            <select id="introVoiceSelect" aria-label="Selecionar voz">
+              <optgroup label="🧠 Kokoro — Voz neural local">
+                <option value="kokoro:af_heart" selected>Coração — suave (multilíngue)</option>
+                <option value="kokoro:af_bella">Bella — feminina clara</option>
+                <option value="kokoro:af_nicole">Nicole — feminina</option>
+                <option value="kokoro:am_adam">Adam — masculino</option>
+                <option value="kokoro:am_michael">Michael — masculino profundo</option>
+              </optgroup>
+              <optgroup label="📱 Vozes do dispositivo">
+                <option value="browser:-1">Automática do dispositivo</option>
+              </optgroup>
+            </select>
+          </label>
+          <!-- Status do carregamento do Kokoro -->
+          <div class="kokoro-status" id="kokoroStatus" role="status" aria-live="polite" data-progress="0">
+            🧠 Kokoro: baixe na primeira vez que ouvir (tamanho variável; use Wi-Fi).
+          </div>
+          <div class="intro-voice-sliders">
+            <label>
+              Velocidade
+              <input id="introRate" type="range" min="0.55" max="1.20" step="0.01" value="0.82" aria-valuemin="0.55" aria-valuemax="1.20" aria-valuenow="0.82">
+              <output id="introRateValue" for="introRate">0.82×</output>
+            </label>
+            <label>
+              Tom
+              <input id="introPitch" type="range" min="0.60" max="1.50" step="0.01" value="1.06" aria-valuemin="0.60" aria-valuemax="1.50" aria-valuenow="1.06">
+              <output id="introPitchValue" for="introPitch">1.06</output>
+            </label>
+          </div>
+          <button type="button" class="intro-voice-test" id="introTestVoice">🔊 Testar voz</button>
+          <div class="intro-voice-status" id="introVoiceStatus" role="status" aria-live="polite">
+            Carregando vozes...
+          </div>
+        </div>
+      </details>
+
+      <div class="intro-actions">
+        <button type="button" class="intro-btn listen" id="listenDemo">🔊 Ouvir demonstração</button>
+        <button type="button" class="intro-btn begin" id="beginGame">▶ Começar jogo</button>
+      </div>
+      <footer>
+        <p>Copyright © 2026 PcTech by Sinnomar Lino</p>
+      </footer>
+    </div>
+  </section>
+
+  <main id="game" aria-hidden="true" inert>
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🎓</div>
+        <div>
+          <h1>Complete a Palavra</h1>
+          <small>Aprenda brincando</small>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="mute-btn" id="muteBtn" aria-label="Silenciar áudio" aria-pressed="false" title="Silenciar">
+          <span aria-hidden="true">🔊</span>
+        </button>
+        <div class="score" aria-label="Pontuação atual">
+          <span>Pontos</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="best-score" aria-label="Recorde">
+          <span>Recorde</span>
+          <strong id="bestScore">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="progress" role="progressbar" aria-label="Progresso do jogo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="progress"></div>
+      </div>
+
+      <div class="topline">
+        <span class="category" id="category">Categoria</span>
+        <span id="round">Palavra 1 de 10</span>
+        <span class="attempts" id="attempts" aria-live="polite">Erros: ○ ○ ○</span>
+      </div>
+
+      <div class="picture" id="picture" role="img" aria-label="Imagem da palavra">🦆</div>
+      <p class="instruction">Clique, toque ou use o teclado para escolher uma letra</p>
+
+      <div class="reading">
+        <button type="button" class="read-btn" id="readWord" aria-label="Ouvir a palavra atual">🔊 Ouvir palavra</button>
+        <span class="syllables" id="syllables" aria-label="Separação silábica">PA • TO</span>
+      </div>
+
+      <details class="voice-panel">
+        <summary>🎙️ Configurar voz</summary>
+        <div class="voice-controls">
+          <label>
+            Fonte da voz
+            <select id="speechMode" aria-label="Fonte da voz">
+              <option value="auto" selected>🔄 Automática (Kokoro + dispositivo)</option>
+              <option value="kokoro">🧠 Kokoro — Voz neural local</option>
+              <option value="browser">📱 Voz do dispositivo</option>
+            </select>
+          </label>
+          <label>
+            Voz selecionada
+            <select id="voiceSelect" aria-label="Selecionar voz">
+              <optgroup label="🧠 Kokoro — Voz neural local">
+                <option value="kokoro:af_heart" selected>Coração — suave (multilíngue)</option>
+                <option value="kokoro:af_bella">Bella — feminina clara</option>
+                <option value="kokoro:af_nicole">Nicole — feminina</option>
+                <option value="kokoro:am_adam">Adam — masculino</option>
+                <option value="kokoro:am_michael">Michael — masculino profundo</option>
+              </optgroup>
+              <optgroup label="📱 Vozes do dispositivo">
+                <option value="browser:-1">Automática do dispositivo</option>
+              </optgroup>
+            </select>
+          </label>
+          <div class="kokoro-status" id="kokoroStatusGame" role="status" aria-live="polite" data-progress="0">
+            🧠 Kokoro: baixe na primeira vez que ouvir (tamanho variável; use Wi-Fi).
+          </div>
+          <div class="voice-sliders">
+            <label>
+              Velocidade
+              <input id="rate" type="range" min="0.55" max="1.20" step="0.01" value="0.82" aria-valuemin="0.55" aria-valuemax="1.20" aria-valuenow="0.82">
+              <output id="rateValue" for="rate">0.82×</output>
+            </label>
+            <label>
+              Tom
+              <input id="pitch" type="range" min="0.60" max="1.50" step="0.01" value="1.06" aria-valuemin="0.60" aria-valuemax="1.50" aria-valuenow="1.06">
+              <output id="pitchValue" for="pitch">1.06</output>
+            </label>
+          </div>
+          <button type="button" class="voice-test" id="testVoice">🔊 Testar voz</button>
+          <div class="voice-status" id="voiceStatus" role="status" aria-live="polite">Carregando vozes...</div>
+          <p class="voice-note">
+            🧠 <strong>Kokoro</strong>: voz neural que roda 100% no seu navegador — sem servidor, sem chaves.
+            Faz um download grande na primeira vez e pode funcionar <strong>offline</strong> enquanto o cache estiver preservado. Se falhar, o jogo usa
+            automaticamente a voz do dispositivo.
+          </p>
+        </div>
+      </details>
+
+      <div class="word" id="word" aria-label="Palavra incompleta"></div>
+      <div class="choices" id="choices" role="group" aria-label="Escolha uma letra"></div>
+
+      <div class="helper-actions">
+        <button type="button" class="helper-btn" id="hint" aria-label="Ouvir uma dica">💡 Dica</button>
+        <button type="button" class="helper-btn" id="repeat" aria-label="Repetir instrução">🔁 Repetir</button>
+        <button type="button" class="helper-btn" id="restart" aria-label="Recomeçar o jogo">↻ Recomeçar</button>
+      </div>
+
+      <div class="message" id="message" role="status" aria-live="polite" aria-atomic="true"></div>
+      <button type="button" class="next" id="next">Próxima palavra →</button>
+      <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+      <footer>
+        <p>Aprenda brincando! 🎮 | Voz neural Kokoro — sem servidor 🧠</p>
+        <p>Copyright © 2026 PcTech by Sinnomar Lino</p>
+      </footer>
+    </div>
+  </main>
+
+  <!-- Kokoro carrega ANTES do script do jogo (define window.KOKORO) -->
+  <script src="kokoro-loader.js" defer></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
